@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdminOrAbove() { return isSignedIn() && (myRole() == 'admin' || myRole() == 'superadmin'); }
+    function isSuperadmin() { return isSignedIn() && myRole() == 'superadmin'; }
+    // Email yang boleh membuat dirinya sendiri sebagai superadmin saat pertama kali login.
+    // HARUS SAMA PERSIS dengan SUPERADMIN_EMAIL di index.html.
+    function isDesignatedSuperadmin() {
+      return isSignedIn() && request.auth.token.email == 'ryan.trisyardi@gmail.com';
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      // Karyawan boleh membuat dokumen dirinya sendiri saat pertama login,
+      // tapi TIDAK BOLEH mengubah field "role" atau "active" milik sendiri.
+      // Email superadmin yang ditentukan boleh membuat dirinya sendiri dengan role 'superadmin'.
+      allow create: if isSignedIn() && request.auth.uid == userId
+                    && (
+                      request.resource.data.role == 'karyawan'
+                      || (request.resource.data.role == 'superadmin' && isDesignatedSuperadmin())
+                    );
+      allow update: if isSignedIn() && (
+                      // admin/superadmin boleh ubah data karyawan (shift, active)
+                      (isAdminOrAbove() && request.resource.data.role in ['karyawan','admin'])
+                      // hanya superadmin boleh menaikkan/menurunkan ke admin
+                      || (isSuperadmin())
+                    )
+                    // user biasa tidak boleh mengubah role atau active miliknya sendiri
+                    && !(request.auth.uid == userId
+                         && (request.resource.data.role != resource.data.role
+                             || request.resource.data.active != resource.data.active));
+      allow delete: if isSuperadmin();
+    }
+
+    match /settings/{doc} {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrAbove();
+    }
+
+    match /offices/{doc} {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrAbove();
+    }
+
+    match /shifts/{doc} {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrAbove();
+    }
+
+    match /attendance/{doc} {
+      allow read: if isSignedIn(); // laporan admin butuh baca semua; karyawan cukup query milik sendiri di app
+      // Karyawan hanya boleh membuat absensi milik sendiri, tidak boleh mengubah/menghapus (log tidak bisa diedit)
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isSuperadmin(); // hanya superadmin bisa koreksi data jika benar2 perlu
+    }
+  }
+}

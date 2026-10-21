@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Absensi Karyawan</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0f172a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- Firebase (compat, mudah dipakai tanpa build tool) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --bg1:#0f172a; --bg2:#1e293b; --accent:#4f46e5; --accent2:#7c3aed;
+  --ok:#10b981; --danger:#ef4444; --warn:#f59e0b;
+}
+*{ -webkit-tap-highlight-color: transparent; }
+body{
+  font-family:'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(99,102,241,.18), transparent 60%),
+    radial-gradient(1000px 500px at -10% 110%, rgba(124,58,237,.15), transparent 60%),
+    #f1f5f9;
+  min-height:100vh;
+}
+.glass{
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(14px) saturate(160%);
+  -webkit-backdrop-filter:blur(14px) saturate(160%);
+  border:1px solid rgba(255,255,255,.6);
+  border-radius:20px;
+  box-shadow:0 8px 30px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+}
+.card{ background:#fff; border-radius:18px; box-shadow:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(15,23,42,.06); border:1px solid rgba(15,23,42,.04); }
+.card-anim{ animation:fadeSlideUp .45s cubic-bezier(.16,1,.3,1) both; }
+@keyframes fadeSlideUp{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
+@keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+@keyframes popIn{ from{opacity:0; transform:scale(.9);} to{opacity:1; transform:scale(1);} }
+@keyframes pulseRing{
+  0%{ box-shadow:0 0 0 0 rgba(79,70,229,.45); }
+  70%{ box-shadow:0 0 0 22px rgba(79,70,229,0); }
+  100%{ box-shadow:0 0 0 0 rgba(79,70,229,0); }
+}
+@keyframes shimmer{ 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
+.skeleton{ background:linear-gradient(90deg,#e2e8f0 0px,#f1f5f9 40px,#e2e8f0 80px); background-size:600px 100%; animation:shimmer 1.4s infinite linear; border-radius:10px; }
+
+.btn{ padding:.7rem 1.2rem; border-radius:14px; font-weight:600; transition:all .18s ease; cursor:pointer; border:none; display:inline-flex; align-items:center; justify-content:center; gap:.4rem; }
+.btn:active{ transform:scale(.96); }
+.btn-primary{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 6px 16px rgba(79,70,229,.35); }
+.btn-primary:hover{ filter:brightness(1.08); box-shadow:0 8px 22px rgba(79,70,229,.45); }
+.btn-danger{ background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; box-shadow:0 6px 16px rgba(239,68,68,.3); }
+.btn-danger:hover{ filter:brightness(1.08); }
+.btn-outline{ border:1.5px solid #e2e8f0; background:#fff; color:#334155; }
+.btn-outline:hover{ background:#f8fafc; border-color:#cbd5e1; }
+.btn-ghost{ background:transparent; color:#475569; }
+.btn-ghost:hover{ background:#f1f5f9; }
+.btn-sm{ padding:.4rem .7rem; font-size:.8rem; border-radius:10px; }
+.btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+input, select, textarea{ border:1.5px solid #e2e8f0; border-radius:12px; padding:.65rem .85rem; width:100%; font-size:.92rem; transition:border-color .15s, box-shadow .15s; background:#fff; }
+input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,70,229,.12); }
+label.field-label{ font-size:.78rem; font-weight:600; color:#64748b; display:block; margin-bottom:.3rem; }
+
+.pill-tabs{ display:flex; gap:.4rem; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+.pill-tabs::-webkit-scrollbar{ display:none; }
+.pill-tab{ white-space:nowrap; padding:.55rem 1rem; border-radius:999px; font-size:.85rem; font-weight:600; color:#64748b; background:transparent; border:none; cursor:pointer; transition:all .2s; }
+.pill-tab.active{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 4px 14px rgba(79,70,229,.35); }
+.pill-tab:not(.active):hover{ background:#e2e8f0; }
+
+.badge{ display:inline-flex; align-items:center; gap:.3rem; font-size:.72rem; font-weight:700; padding:.25rem .6rem; border-radius:999px; }
+.badge-ok{ background:#d1fae5; color:#047857; }
+.badge-warn{ background:#fef3c7; color:#b45309; }
+.badge-danger{ background:#fee2e2; color:#b91c1c; }
+.badge-muted{ background:#e2e8f0; color:#475569; }
+
+.icon{ width:18px; height:18px; flex-shrink:0; }
+.icon-lg{ width:26px; height:26px; }
+
+.toast-wrap{ position:fixed; top:1rem; right:1rem; left:1rem; z-index:100; display:flex; flex-direction:column; align-items:flex-end; gap:.5rem; pointer-events:none; }
+.toast{ pointer-events:auto; max-width:360px; padding:.8rem 1.1rem; border-radius:14px; color:#fff; font-size:.88rem; font-weight:500; box-shadow:0 10px 30px rgba(0,0,0,.18); animation:toastIn .25s ease both; display:flex; align-items:center; gap:.5rem; }
+@keyframes toastIn{ from{opacity:0; transform:translateY(-10px) scale(.95);} to{opacity:1; transform:translateY(0) scale(1);} }
+
+.modal-overlay{ position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(3px); z-index:90; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn .2s ease; }
+@media(min-width:640px){ .modal-overlay{ align-items:center; } }
+.modal-box{ background:#fff; width:100%; max-width:480px; max-height:92vh; overflow-y:auto; border-radius:22px 22px 0 0; padding:1.5rem; animation:popIn .25s cubic-bezier(.16,1,.3,1); }
+@media(min-width:640px){ .modal-box{ border-radius:22px; margin:1rem; } }
+
+.clock-btn{ width:128px; height:128px; border-radius:999px; font-size:.95rem; font-weight:800; letter-spacing:.02em; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:.3rem; border:none; color:#fff; cursor:pointer; transition:transform .15s; }
+.clock-btn:active{ transform:scale(.95); }
+.clock-btn.in{ background:linear-gradient(135deg,#4f46e5,#7c3aed); animation:pulseRing 2.2s infinite; }
+.clock-btn.out{ background:linear-gradient(135deg,#ef4444,#f97316); animation:pulseRing 2.2s infinite; }
+
+.bottom-nav{ position:fixed; bottom:0; left:0; right:0; z-index:60; display:flex; background:rgba(255,255,255,.92); backdrop-filter:blur(16px); border-top:1px solid rgba(15,23,42,.06); box-shadow:0 -4px 20px rgba(15,23,42,.06); padding:.4rem .2rem calc(.4rem + env(safe-area-inset-bottom)); }
+.bottom-nav-btn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:.15rem; padding:.4rem 0; border:none; background:transparent; color:#94a3b8; font-size:.65rem; font-weight:700; border-radius:14px; transition:all .2s; }
+.bottom-nav-btn.active{ color:var(--accent); }
+.bottom-nav-btn.active .icon{ transform:translateY(-2px); }
+
+.app-header{ position:sticky; top:0; z-index:50; background:rgba(241,245,249,.75); backdrop-filter:blur(10px); }
+
+table.data-table{ width:100%; border-collapse:collapse; }
+table.data-table th{ text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:#94a3b8; padding:.5rem .6rem; border-bottom:2px solid #f1f5f9; }
+table.data-table td{ padding:.65rem .6rem; border-bottom:1px solid #f1f5f9; font-size:.86rem; }
+table.data-table tr:hover td{ background:#f8fafc; }
+
+.map-box{ width:100%; border-radius:16px; overflow:hidden; border:1.5px solid #e2e8f0; }
+
+.user-dot-wrap{ position:relative; width:22px; height:22px; }
+.user-dot-pulse{ position:absolute; top:50%; left:50%; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:999px; background:rgba(66,133,244,.35); animation:userPulse 1.8s ease-out infinite; }
+.user-dot-core{ position:absolute; top:50%; left:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:999px; background:#4285F4; border:2.5px solid #fff; box-shadow:0 0 4px rgba(0,0,0,.35); }
+@keyframes userPulse{
+  0%{ transform:scale(.4); opacity:.8; }
+  70%{ transform:scale(2.2); opacity:0; }
+  100%{ transform:scale(2.2); opacity:0; }
+}
+.day-chip{ display:flex; align-items:center; justify-content:space-between; padding:.55rem .7rem; border-radius:12px; background:#f8fafc; border:1px solid #eef2f7; margin-bottom:.4rem; }
+
+.fab{ position:fixed; right:1.1rem; bottom:5.2rem; z-index:55; width:56px; height:56px; border-radius:999px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; box-shadow:0 10px 26px rgba(79,70,229,.4); display:flex; align-items:center; justify-content:center; border:none; }
+
+::-webkit-scrollbar{ width:8px; height:8px; }
+::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:8px; }
+</style>
+</head>
+<body>
+
+<div id="toast-wrap" class="toast-wrap"></div>
+<div id="modal-root"></div>
+<div id="app" class="max-w-5xl mx-auto p-4" style="padding-bottom:5.5rem;"></div>
+
+<script>
+/* =========================================================
+   1. KONFIGURASI FIREBASE
+   Ganti firebaseConfig ini dengan config dari Firebase Console
+   punya Anda sendiri (lihat panduan PANDUAN.md).
+========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDyZPjZLO0635S-rt3t6s6Ig_X1GxcvQYM",
+  authDomain: "absensi-perusahaan-saya.firebaseapp.com",
+  projectId: "absensi-perusahaan-saya",
+  storageBucket: "absensi-perusahaan-saya.firebasestorage.app",
+  messagingSenderId: "609192565021",
+  appId: "1:609192565021:web:4dfe42ec93e40e1d4429f4",
+  measurementId: "G-LWCNXQQT7V"
+};
+
+// Email yang otomatis menjadi SUPERADMIN saat pertama kali login.
+// Ganti dengan email Anda sendiri sebelum deploy. HARUS SAMA dengan firestore.rules.
+const SUPERADMIN_EMAIL = "ryan.trisyardi@gmail.com";
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;    // firebase auth user
+let currentProfile = null; // dokumen users/{uid}
+let officesCache = [];
+let shiftsCache = [];
+let usersCache = [];       // hanya dimuat admin saat dibutuhkan
+
+const app = document.getElementById('app');
+
+const DAYS = [
+  {key:'sen', label:'Senin', short:'Sen', dow:1},
+  {key:'sel', label:'Selasa', short:'Sel', dow:2},
+  {key:'rab', label:'Rabu', short:'Rab', dow:3},
+  {key:'kam', label:'Kamis', short:'Kam', dow:4},
+  {key:'jum', label:'Jumat', short:'Jum', dow:5},
+  {key:'sab', label:'Sabtu', short:'Sab', dow:6},
+  {key:'min', label:'Minggu', short:'Min', dow:0},
+];
+
+/* =========================================================
+   IKON (inline SVG, ringan tanpa library tambahan)
+========================================================= */
+const ICONS = {
+  pin: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  clock: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
+  users: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  calendar: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+  chart: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>`,
+  edit: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  trash: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`,
+  plus: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`,
+  logout: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`,
+  check: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+  x: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+  map: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4Z"/><path d="M8 2v16M16 6v16"/></svg>`,
+  shield: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>`,
+  building: `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>`,
+};
+
+/* =========================================================
+   UTIL
+========================================================= */
+function haversineMeters(lat1, lon1, lat2, lon2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(lat2-lat1);
+  const dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function fmtTime(ts){
+  if(!ts) return '-';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString('id-ID', {dateStyle:'medium', timeStyle:'short'});
+}
+function fmtClock(ts){
+  if(!ts) return '-';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+}
+function dateKey(ts){
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function fmtDateLabel(key){
+  const d = new Date(key+'T00:00:00');
+  return d.toLocaleDateString('id-ID', {weekday:'short', day:'2-digit', month:'short', year:'numeric'});
+}
+function toast(msg, ok=true){
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = `toast ${ok?'':''}`;
+  el.style.background = ok ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#ef4444,#dc2626)';
+  el.innerHTML = `${ok?ICONS.check:ICONS.x}<span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(),300); }, 3500);
+}
+function getLocation(){
+  return new Promise((resolve, reject)=>{
+    if(!navigator.geolocation) return reject(new Error('Perangkat tidak mendukung GPS'));
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve(pos.coords),
+      err => reject(err),
+      { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+    );
+  });
+}
+function val(id){ const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function skeleton(lines=3){
+  return `<div class="space-y-2">${Array.from({length:lines}).map(()=>`<div class="skeleton h-4 w-full"></div>`).join('')}</div>`;
+}
+function showModal(html){
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `<div class="modal-overlay" onclick="if(event.target===this) closeModal()"><div class="modal-box">${html}</div></div>`;
+}
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+// Reverse geocode gratis via Nominatim (OpenStreetMap) — best-effort, tanpa API key.
+async function reverseGeocode(lat, lng){
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+    const data = await res.json();
+    const a = data.address || {};
+    return {
+      kelurahan: a.village || a.suburb || a.neighbourhood || a.hamlet || '',
+      kecamatan: a.suburb || a.city_district || a.county || a.district || '',
+      kota: a.city || a.town || a.municipality || a.county || a.state || ''
+    };
+  }catch(e){ return { kelurahan:'', kecamatan:'', kota:'' }; }
+}
+
+function nearestOffice(lat, lng){
+  let best = null;
+  officesCache.forEach(o=>{
+    if(o.lat==null || o.lng==null) return;
+    const d = haversineMeters(lat, lng, o.lat, o.lng);
+    if(!best || d < best.distance) best = { office:o, distance:d };
+  });
+  return best;
+}
+function todayShift(profile){
+  const dow = new Date().getDay();
+  const day = DAYS.find(d=>d.dow===dow);
+  const shiftId = profile.schedule ? profile.schedule[day.key] : null;
+  return shiftId ? shiftsCache.find(s=>s.id===shiftId) || null : null;
+}
+
+/* =========================================================
+   AUTH
+========================================================= */
+auth.onAuthStateChanged(async (user) => {
+  currentUser = user;
+  if(!user){ currentProfile = null; renderLogin(); return; }
+  renderLoadingShell();
+  await ensureUserProfile(user);
+  await loadGlobalData();
+  route();
+});
+
+async function ensureUserProfile(user){
+  const ref = db.collection('users').doc(user.uid);
+  const snap = await ref.get();
+  if(!snap.exists){
+    const role = (user.email === SUPERADMIN_EMAIL) ? 'superadmin' : 'karyawan';
+    await ref.set({
+      name: user.displayName || user.email.split('@')[0],
+      nik: '',
+      email: user.email,
+      role,
+      active: true,
+      schedule: {},
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  const fresh = await ref.get();
+  currentProfile = { id: fresh.id, ...fresh.data() };
+}
+
+async function loadGlobalData(){
+  const [officeSnap, shiftSnap] = await Promise.all([
+    db.collection('offices').get(),
+    db.collection('shifts').get()
+  ]);
+  officesCache = officeSnap.docs.map(d => ({id:d.id, ...d.data()}));
+  shiftsCache = shiftSnap.docs.map(d => ({id:d.id, ...d.data()}));
+}
+
+// Ambil ulang profil terbaru dari Firestore, supaya perubahan Nama/NIK/Jadwal
+// yang dilakukan admin langsung terlihat oleh karyawan tanpa perlu logout-login.
+async function refreshCurrentProfile(){
+  const snap = await db.collection('users').doc(currentUser.uid).get();
+  if(snap.exists) currentProfile = { id: snap.id, ...snap.data() };
+}
+
+function loginGoogle(){
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(e=>toast(e.message,false));
+}
+function registerEmail(email, pass, name){
+  if(!email || !pass || !name) return toast('Lengkapi semua field', false);
+  auth.createUserWithEmailAndPassword(email, pass)
+    .then(cred => cred.user.updateProfile({displayName:name}))
+    .catch(e=>toast(e.message,false));
+}
+function loginEmail(email, pass){
+  auth.signInWithEmailAndPassword(email, pass).catch(e=>toast(e.message,false));
+}
+function logout(){ auth.signOut(); }
+
+function renderLoadingShell(){
+  app.innerHTML = `<div class="pt-16 max-w-md mx-auto">${skeleton(1)}<div class="h-4"></div>${skeleton(4)}</div>`;
+}
+
+/* =========================================================
+   ROUTER
+========================================================= */
+function route(){
+  if(!currentProfile.active){
+    app.innerHTML = `
+    <div class="min-h-screen flex items-center justify-center px-4">
+      <div class="glass p-8 text-center max-w-sm card-anim">
+        <div class="mx-auto mb-3 w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center">${ICONS.x}</div>
+        <div class="font-bold text-lg mb-1">Akun Dinonaktifkan</div>
+        <div class="text-sm text-slate-500 mb-5">Akun Anda dinonaktifkan oleh admin. Hubungi admin perusahaan Anda.</div>
+        <button onclick="logout()" class="btn btn-outline w-full">Keluar</button>
+      </div>
+    </div>`;
+    return;
+  }
+  if(currentProfile.role === 'superadmin') renderAdminDashboard(true);
+  else if(currentProfile.role === 'admin') renderAdminDashboard(false);
+  else renderEmployeeDashboard();
+}
+
+/* =========================================================
+   LOGIN SCREEN
+========================================================= */
+function renderLogin(){
+  app.innerHTML = `
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <div class="glass p-8 w-full max-w-sm card-anim">
+      <div class="mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center text-white" style="background:linear-gradient(135deg,var(--accent),var(--accent2));">${ICONS.clock}</div>
+      <h1 class="text-xl font-extrabold text-center mb-1">Absensi Karyawan</h1>
+      <p class="text-sm text-slate-500 text-center mb-6">Masuk untuk mencatat kehadiran</p>
+      <button onclick="loginGoogle()" class="btn btn-outline w-full mb-4">
+        <svg class="icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Masuk dengan Google
+      </button>
+      <div class="text-center text-xs text-slate-400 mb-4 flex items-center gap-2">
+        <span class="flex-1 h-px bg-slate-200"></span> atau dengan email <span class="flex-1 h-px bg-slate-200"></span>
+      </div>
+      <div id="mode-login">
+        <div class="mb-2"><input id="li-email" placeholder="Email"></div>
+        <div class="mb-3"><input id="li-pass" type="password" placeholder="Password"></div>
+        <button onclick="doLogin()" class="btn btn-primary w-full mb-2">Masuk</button>
+        <div class="text-center text-sm mt-3 text-slate-500">Belum punya akun? <a href="#" onclick="toggleMode()" class="text-indigo-600 font-semibold">Daftar</a></div>
+      </div>
+      <div id="mode-register" class="hidden">
+        <div class="mb-2"><input id="re-name" placeholder="Nama lengkap"></div>
+        <div class="mb-2"><input id="re-email" placeholder="Email"></div>
+        <div class="mb-3"><input id="re-pass" type="password" placeholder="Password (min 6 karakter)"></div>
+        <button onclick="doRegister()" class="btn btn-primary w-full mb-2">Daftar</button>
+        <div class="text-center text-sm mt-3 text-slate-500">Sudah punya akun? <a href="#" onclick="toggleMode()" class="text-indigo-600 font-semibold">Masuk</a></div>
+      </div>
+    </div>
+  </div>`;
+}
+function toggleMode(){
+  document.getElementById('mode-login').classList.toggle('hidden');
+  document.getElementById('mode-register').classList.toggle('hidden');
+}
+function doLogin(){ loginEmail(val('li-email'), val('li-pass')); }
+function doRegister(){ registerEmail(val('re-email'), val('re-pass'), val('re-name')); }
+
+/* =========================================================
+   EMPLOYEE DASHBOARD
+========================================================= */
+let empMapObj = null;
+let empMapVisible = false;
+
+async function renderEmployeeDashboard(){
+  await refreshCurrentProfile();
+  const shift = todayShift(currentProfile);
+  const lastRecord = await getLastAttendance(currentUser.uid);
+
+  app.innerHTML = `
+  <div class="app-header flex justify-between items-center py-4 mb-2">
+    <div>
+      <div class="font-extrabold text-lg">Halo, ${currentProfile.name.split(' ')[0]} 👋</div>
+      <div class="text-sm text-slate-500 flex items-center gap-1">${ICONS.calendar} ${shift ? `Shift hari ini: <b class="text-slate-700">${shift.name} (${shift.startTime}-${shift.endTime})</b>` : 'Tidak ada shift hari ini'}</div>
+    </div>
+    <button onclick="logout()" class="btn btn-ghost btn-sm">${ICONS.logout}</button>
+  </div>
+
+  <div class="glass p-6 text-center mb-4 card-anim">
+    <div class="text-sm text-slate-500 mb-1">Status saat ini</div>
+    <div class="text-xl font-extrabold mb-5">${lastRecord ? (lastRecord.type==='in'?'🟢 Sedang Bekerja':'⚪ Sudah Clock Out') : '⏳ Belum absen hari ini'}</div>
+    <div class="flex justify-center gap-5 mb-4 flex-wrap">
+      <button id="clock-in-btn" onclick="doClock('in')" class="clock-btn in">
+        ${ICONS.clock}
+        CLOCK IN
+      </button>
+      <button id="clock-out-btn" onclick="doClock('out')" class="clock-btn out">
+        ${ICONS.clock}
+        CLOCK OUT
+      </button>
+    </div>
+    <div id="clock-status" class="text-sm text-slate-500 min-h-[1.2em]"></div>
+    <button onclick="toggleEmpMap()" class="btn btn-outline btn-sm mt-3">${ICONS.map} <span id="map-toggle-label">Lihat Peta Lokasi Kantor</span></button>
+    <div id="emp-map-wrap" class="hidden mt-4 text-left">
+      <div id="emp-map" class="map-box" style="height:260px;"></div>
+      <div class="flex items-center justify-between mt-2">
+        <div class="text-xs text-slate-400">Peta menampilkan area radius absen tiap kantor. Titik biru berdenyut = posisi Anda saat ini.</div>
+        <button onclick="locateMeOnEmpMap()" class="btn btn-ghost btn-sm" title="Perbarui lokasi saya">${ICONS.pin}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4 card-anim">
+    <div class="font-semibold mb-3 flex items-center gap-2">${ICONS.chart} Riwayat Absensi Saya</div>
+    <div id="my-history" class="text-sm text-slate-600">${skeleton(4)}</div>
+  </div>
+  `;
+  renderBottomNav('home');
+  loadMyHistory();
+}
+
+function toggleEmpMap(){
+  const wrap = document.getElementById('emp-map-wrap');
+  empMapVisible = !empMapVisible;
+  wrap.classList.toggle('hidden', !empMapVisible);
+  document.getElementById('map-toggle-label').textContent = empMapVisible ? 'Sembunyikan Peta' : 'Lihat Peta Lokasi Kantor';
+  if(empMapVisible) setTimeout(()=>{ initEmpMap(); locateMeOnEmpMap(); }, 50);
+}
+
+function initEmpMap(){
+  const officesWithLoc = officesCache.filter(o=>o.lat!=null);
+  const center = officesWithLoc.length ? [officesWithLoc[0].lat, officesWithLoc[0].lng] : [-6.9, 107.6];
+  if(empMapObj){ empMapObj.remove(); empMapObj = null; }
+  empMapObj = L.map('emp-map').setView(center, officesWithLoc.length ? 15 : 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'&copy; OpenStreetMap' }).addTo(empMapObj);
+  const bounds = [];
+  officesWithLoc.forEach(o=>{
+    L.marker([o.lat,o.lng]).addTo(empMapObj).bindPopup(`<b>${o.label}</b><br>Radius ${o.radius}m`);
+    L.circle([o.lat,o.lng], { radius:o.radius, color:'#4f46e5', fillColor:'#4f46e5', fillOpacity:.12 }).addTo(empMapObj);
+    bounds.push([o.lat,o.lng]);
+  });
+  if(bounds.length>1) empMapObj.fitBounds(bounds, {padding:[30,30]});
+  window.__empUserMarker = null;
+  window.__empUserAccuracyCircle = null;
+}
+
+// Ambil lokasi GPS karyawan saat ini dan tampilkan sebagai titik biru berdenyut (gaya Google Maps).
+async function locateMeOnEmpMap(){
+  const statusEl = document.getElementById('clock-status');
+  try{
+    const coords = await getLocation();
+    plotUserOnEmpMap(coords.latitude, coords.longitude, coords.accuracy);
+  }catch(e){
+    if(statusEl) statusEl.textContent = 'Tidak bisa mendeteksi lokasi Anda: ' + (e.message || e);
+  }
+}
+
+const userDotIcon = L.divIcon({
+  className: '',
+  html: `<div class="user-dot-wrap"><div class="user-dot-pulse"></div><div class="user-dot-core"></div></div>`,
+  iconSize: [22,22],
+  iconAnchor: [11,11]
+});
+
+function plotUserOnEmpMap(lat, lng, accuracy){
+  if(!empMapObj) return;
+  if(window.__empUserMarker) empMapObj.removeLayer(window.__empUserMarker);
+  if(window.__empUserAccuracyCircle) empMapObj.removeLayer(window.__empUserAccuracyCircle);
+  if(accuracy){
+    window.__empUserAccuracyCircle = L.circle([lat,lng], { radius:accuracy, color:'#4285F4', weight:1, fillColor:'#4285F4', fillOpacity:.08 }).addTo(empMapObj);
+  }
+  window.__empUserMarker = L.marker([lat,lng], { icon:userDotIcon, zIndexOffset:1000 }).addTo(empMapObj).bindPopup('Posisi Anda saat ini');
+  empMapObj.panTo([lat,lng]);
+}
+
+async function getLastAttendance(uid){
+  const snap = await db.collection('attendance')
+    .where('uid','==',uid).orderBy('timestamp','desc').limit(1).get();
+  if(snap.empty) return null;
+  return snap.docs[0].data();
+}
+
+async function doClock(type){
+  const btn = document.getElementById(type==='in' ? 'clock-in-btn' : 'clock-out-btn');
+  const otherBtn = document.getElementById(type==='in' ? 'clock-out-btn' : 'clock-in-btn');
+  const statusEl = document.getElementById('clock-status');
+  btn.disabled = true;
+  otherBtn.disabled = true;
+  statusEl.textContent = 'Mengambil lokasi GPS...';
+  try{
+    if(officesCache.length===0){
+      toast('Belum ada kantor yang diatur admin', false); btn.disabled=false; otherBtn.disabled=false; statusEl.textContent=''; return;
+    }
+    const coords = await getLocation();
+    if(empMapVisible) plotUserOnEmpMap(coords.latitude, coords.longitude, coords.accuracy);
+
+    if(coords.accuracy && coords.accuracy > 150){
+      statusEl.textContent = `Sinyal GPS kurang akurat (± ${Math.round(coords.accuracy)}m). Coba di tempat terbuka.`;
+      btn.disabled = false; otherBtn.disabled = false; return;
+    }
+
+    const nearest = nearestOffice(coords.latitude, coords.longitude);
+    if(!nearest){
+      statusEl.textContent = 'Belum ada kantor dengan lokasi yang valid.'; btn.disabled=false; otherBtn.disabled=false; return;
+    }
+    if(nearest.distance > nearest.office.radius){
+      statusEl.textContent = `Anda ${Math.round(nearest.distance)}m dari kantor terdekat "${nearest.office.label}" (maks ${nearest.office.radius}m). Absen ditolak.`;
+      btn.disabled = false; otherBtn.disabled = false; return;
+    }
+
+    const shift = todayShift(currentProfile);
+    await db.collection('attendance').add({
+      uid: currentUser.uid,
+      name: currentProfile.name,
+      nik: currentProfile.nik || '',
+      type,
+      shiftId: shift ? shift.id : null,
+      officeId: nearest.office.id,
+      officeLabel: nearest.office.label,
+      lat: coords.latitude,
+      lng: coords.longitude,
+      accuracy: coords.accuracy || null,
+      distance: Math.round(nearest.distance),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast(type==='in' ? `Clock In berhasil di ${nearest.office.label}` : `Clock Out berhasil di ${nearest.office.label}`);
+    renderEmployeeDashboard();
+  }catch(e){
+    statusEl.textContent = 'Gagal mengambil lokasi: ' + (e.message || e);
+    btn.disabled = false; otherBtn.disabled = false;
+  }
+}
+
+async function loadMyHistory(){
+  const snap = await db.collection('attendance')
+    .where('uid','==',currentUser.uid).orderBy('timestamp','desc').limit(30).get();
+  const rows = snap.docs.map(d=>d.data());
+  const el = document.getElementById('my-history');
+  if(rows.length===0){ el.textContent = 'Belum ada riwayat.'; return; }
+  el.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr>
+      <th>Waktu</th><th>Jenis</th><th>Kantor</th><th>Jarak</th><th>Jadwal Masuk</th><th>Jadwal Pulang</th></tr></thead><tbody>
+    ${rows.map(r=>{
+      const shift = r.shiftId ? shiftsCache.find(s=>s.id===r.shiftId) : null;
+      return `<tr><td>${fmtTime(r.timestamp)}</td>
+      <td>${r.type==='in'?'<span class="badge badge-ok">Masuk</span>':'<span class="badge badge-muted">Keluar</span>'}</td>
+      <td>${r.officeLabel||'-'}</td><td>${r.distance}m</td>
+      <td>${shift?shift.startTime:'-'}</td><td>${shift?shift.endTime:'-'}</td></tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+}
+
+function renderBottomNav(active){
+  const nav = document.createElement('div');
+  nav.className = 'bottom-nav sm:hidden';
+  nav.innerHTML = `
+    <button class="bottom-nav-btn ${active==='home'?'active':''}" onclick="renderEmployeeDashboard()">${ICONS.clock}<span>Absen</span></button>
+  `;
+  document.querySelectorAll('.bottom-nav').forEach(n=>n.remove());
+  document.body.appendChild(nav);
+}
+
+/* =========================================================
+   ADMIN / SUPERADMIN DASHBOARD
+========================================================= */
+const ADMIN_TABS = [
+  {key:'kantor', label:'Kantor', icon:'building'},
+  {key:'shift', label:'Shift', icon:'clock'},
+  {key:'karyawan', label:'Karyawan', icon:'users'},
+  {key:'absensi', label:'Absensi', icon:'chart'},
+];
+function renderAdminDashboard(isSuperadmin){
+  window.__isSuperadmin = isSuperadmin;
+  const tabs = isSuperadmin ? [...ADMIN_TABS, {key:'admin', label:'Admin', icon:'shield'}] : ADMIN_TABS;
+  app.innerHTML = `
+  <div class="app-header flex justify-between items-center py-4 mb-2">
+    <div>
+      <div class="font-extrabold text-lg">${isSuperadmin?'Superadmin':'Admin'}</div>
+      <div class="text-sm text-slate-500">${currentProfile.name}</div>
+    </div>
+    <button onclick="logout()" class="btn btn-ghost btn-sm">${ICONS.logout}</button>
+  </div>
+  <div class="pill-tabs mb-4">
+    ${tabs.map(t=>`<button class="pill-tab" data-tab="${t.key}" onclick="switchTab('${t.key}')">${t.label}</button>`).join('')}
+  </div>
+  <div id="tab-content"></div>
+  `;
+  switchTab(tabs[0].key);
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.pill-tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  const c = document.getElementById('tab-content');
+  c.innerHTML = skeleton(4);
+  if(tab==='kantor') renderTabKantor(c);
+  if(tab==='shift') renderTabShift(c);
+  if(tab==='karyawan') renderTabKaryawan(c);
+  if(tab==='absensi'){ renderTabAbsensi(c); setTimeout(loadAttendanceData, 60); }
+  if(tab==='admin') renderTabAdmin(c);
+}
+
+/* ---- Tab: Kantor (multi lokasi) ---- */
+let officeMapObj = null;
+let officeMarker = null;
+let pendingOfficeCoords = null;
+
+function renderTabKantor(c){
+  c.innerHTML = `
+  <div class="card p-5 mb-4 card-anim">
+    <div class="font-semibold mb-3 flex items-center gap-2">${ICONS.plus} Tambah Kantor / Lokasi Absen</div>
+    <label class="field-label">Nama / Label Kantor</label>
+    <input id="of-label" placeholder="Contoh: Kantor Pusat Bandung" class="mb-3">
+    <label class="field-label">Klik peta untuk menandai lokasi, atau gunakan lokasi GPS Anda</label>
+    <div id="office-map" class="map-box mb-2" style="height:240px;"></div>
+    <div class="flex gap-2 mb-3">
+      <button onclick="useMyLocationForOffice()" class="btn btn-outline btn-sm flex-1">${ICONS.pin} Gunakan Lokasi Saya</button>
+      <button onclick="detectAddressForOffice()" class="btn btn-outline btn-sm flex-1">Deteksi Alamat</button>
+    </div>
+    <div class="text-xs text-slate-500 mb-3" id="of-coords">Koordinat: belum dipilih</div>
+    <div class="grid grid-cols-1 gap-2 mb-3">
+      <div><label class="field-label">Kelurahan / Desa</label><input id="of-kelurahan" placeholder="Kelurahan"></div>
+      <div><label class="field-label">Kecamatan</label><input id="of-kecamatan" placeholder="Kecamatan"></div>
+      <div><label class="field-label">Kota / Kabupaten</label><input id="of-kota" placeholder="Kota / Kabupaten"></div>
+    </div>
+    <label class="field-label">Radius maksimal absen</label>
+    <select id="of-radius" class="mb-3">
+      <option value="100">100 meter</option>
+      <option value="200" selected>200 meter</option>
+      <option value="500">500 meter</option>
+      <option value="1000">1000 meter</option>
+    </select>
+    <button onclick="addOffice()" class="btn btn-primary w-full">Simpan Kantor</button>
+  </div>
+  <div class="card p-5 card-anim">
+    <div class="font-semibold mb-3">Daftar Kantor (${officesCache.length})</div>
+    <div id="office-list">${officesCache.map(o=>officeRowHtml(o)).join('') || '<div class="text-slate-400 text-sm">Belum ada kantor terdaftar.</div>'}</div>
+  </div>`;
+  setTimeout(initOfficeMap, 50);
+}
+
+function officeRowHtml(o){
+  return `
+  <div class="border-t py-3 flex flex-wrap justify-between items-center gap-2">
+    <div>
+      <div class="font-medium flex items-center gap-2">${ICONS.building} ${o.label}</div>
+      <div class="text-xs text-slate-500">${[o.kelurahan,o.kecamatan,o.kota].filter(Boolean).join(', ') || 'Alamat belum diisi'}</div>
+      <div class="text-xs text-slate-400">Radius ${o.radius}m • ${o.lat?.toFixed(5)}, ${o.lng?.toFixed(5)}</div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="editOffice('${o.id}')" class="btn btn-outline btn-sm">${ICONS.edit}</button>
+      <button onclick="deleteOffice('${o.id}')" class="btn btn-outline btn-sm text-red-600">${ICONS.trash}</button>
+    </div>
+  </div>`;
+}
+
+function initOfficeMap(){
+  const center = officesCache.length ? [officesCache[0].lat, officesCache[0].lng] : [-6.9, 107.6];
+  if(officeMapObj){ officeMapObj.remove(); officeMapObj=null; }
+  officeMapObj = L.map('office-map').setView(center, officesCache.length?14:5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'&copy; OpenStreetMap' }).addTo(officeMapObj);
+  officesCache.forEach(o=>{
+    if(o.lat==null) return;
+    L.circle([o.lat,o.lng], { radius:o.radius, color:'#94a3b8', fillColor:'#94a3b8', fillOpacity:.1 }).addTo(officeMapObj)
+      .bindPopup(`<b>${o.label}</b>`);
+  });
+  officeMapObj.on('click', (e)=> setOfficeMarker(e.latlng.lat, e.latlng.lng));
+  pendingOfficeCoords = null;
+}
+function setOfficeMarker(lat, lng){
+  pendingOfficeCoords = { lat, lng };
+  if(officeMarker) officeMapObj.removeLayer(officeMarker);
+  officeMarker = L.marker([lat,lng], {draggable:true}).addTo(officeMapObj);
+  officeMarker.on('dragend', ()=>{
+    const p = officeMarker.getLatLng();
+    pendingOfficeCoords = { lat:p.lat, lng:p.lng };
+    document.getElementById('of-coords').textContent = `Koordinat: ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+  });
+  document.getElementById('of-coords').textContent = `Koordinat: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+async function useMyLocationForOffice(){
+  try{
+    const c = await getLocation();
+    officeMapObj.setView([c.latitude, c.longitude], 16);
+    setOfficeMarker(c.latitude, c.longitude);
+    toast('Lokasi GPS Anda ditandai di peta');
+  }catch(e){ toast('Gagal ambil lokasi: '+e.message, false); }
+}
+async function detectAddressForOffice(){
+  if(!pendingOfficeCoords) return toast('Tandai lokasi di peta dahulu', false);
+  toast('Mendeteksi alamat...');
+  const addr = await reverseGeocode(pendingOfficeCoords.lat, pendingOfficeCoords.lng);
+  document.getElementById('of-kelurahan').value = addr.kelurahan;
+  document.getElementById('of-kecamatan').value = addr.kecamatan;
+  document.getElementById('of-kota').value = addr.kota;
+  toast('Alamat terdeteksi (silakan periksa & sunting jika perlu)');
+}
+async function addOffice(){
+  const label = val('of-label');
+  if(!label) return toast('Nama kantor wajib diisi', false);
+  if(!pendingOfficeCoords) return toast('Tandai lokasi di peta atau gunakan lokasi GPS', false);
+  await db.collection('offices').add({
+    label,
+    lat: pendingOfficeCoords.lat,
+    lng: pendingOfficeCoords.lng,
+    radius: parseInt(val('of-radius')),
+    kelurahan: val('of-kelurahan'),
+    kecamatan: val('of-kecamatan'),
+    kota: val('of-kota'),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  await loadGlobalData();
+  toast('Kantor berhasil ditambahkan');
+  switchTab('kantor');
+}
+function editOffice(id){
+  const o = officesCache.find(x=>x.id===id);
+  showModal(`
+    <div class="font-bold text-lg mb-4 flex items-center gap-2">${ICONS.edit} Edit Kantor</div>
+    <label class="field-label">Nama / Label Kantor</label>
+    <input id="eo-label" value="${o.label}" class="mb-3">
+    <div class="grid grid-cols-1 gap-2 mb-3">
+      <div><label class="field-label">Kelurahan / Desa</label><input id="eo-kelurahan" value="${o.kelurahan||''}"></div>
+      <div><label class="field-label">Kecamatan</label><input id="eo-kecamatan" value="${o.kecamatan||''}"></div>
+      <div><label class="field-label">Kota / Kabupaten</label><input id="eo-kota" value="${o.kota||''}"></div>
+    </div>
+    <label class="field-label">Radius maksimal absen</label>
+    <select id="eo-radius" class="mb-4">
+      ${[100,200,500,1000].map(r=>`<option value="${r}" ${o.radius===r?'selected':''}>${r} meter</option>`).join('')}
+    </select>
+    <div class="text-xs text-slate-400 mb-4">Untuk mengubah titik koordinat, hapus kantor ini dan tambahkan ulang lewat peta.</div>
+    <div class="flex gap-2">
+      <button onclick="closeModal()" class="btn btn-outline flex-1">Batal</button>
+      <button onclick="saveOfficeEdit('${id}')" class="btn btn-primary flex-1">Simpan</button>
+    </div>
+  `);
+}
+async function saveOfficeEdit(id){
+  await db.collection('offices').doc(id).update({
+    label: val('eo-label'),
+    kelurahan: val('eo-kelurahan'),
+    kecamatan: val('eo-kecamatan'),
+    kota: val('eo-kota'),
+    radius: parseInt(val('eo-radius'))
+  });
+  await loadGlobalData();
+  closeModal();
+  toast('Kantor diperbarui');
+  switchTab('kantor');
+}
+async function deleteOffice(id){
+  showModal(`
+    <div class="font-bold text-lg mb-2">Hapus Kantor?</div>
+    <div class="text-sm text-slate-500 mb-5">Karyawan tidak akan bisa absen menggunakan lokasi ini lagi.</div>
+    <div class="flex gap-2">
+      <button onclick="closeModal()" class="btn btn-outline flex-1">Batal</button>
+      <button onclick="confirmDeleteOffice('${id}')" class="btn btn-danger flex-1">Hapus</button>
+    </div>
+  `);
+}
+async function confirmDeleteOffice(id){
+  await db.collection('offices').doc(id).delete();
+  await loadGlobalData();
+  closeModal();
+  toast('Kantor dihapus');
+  switchTab('kantor');
+}
+
+/* ---- Tab: Shift ---- */
+function renderTabShift(c){
+  c.innerHTML = `
+  <div class="card p-5 mb-4 max-w-md card-anim">
+    <div class="font-semibold mb-3 flex items-center gap-2">${ICONS.plus} Tambah Shift</div>
+    <label class="field-label">Nama Shift</label>
+    <input id="sh-name" placeholder="Contoh: Pagi" class="mb-2">
+    <div class="flex gap-2 mb-3">
+      <div class="flex-1"><label class="field-label">Jam Mulai</label><input id="sh-start" type="time"></div>
+      <div class="flex-1"><label class="field-label">Jam Selesai</label><input id="sh-end" type="time"></div>
+    </div>
+    <button onclick="addShift()" class="btn btn-primary w-full">Tambah</button>
+  </div>
+  <div class="card p-5 card-anim">
+    <div class="font-semibold mb-3">Daftar Shift</div>
+    <div id="shift-list">${shiftsCache.map(s=>`
+      <div class="flex justify-between items-center border-t py-3">
+        <div class="flex items-center gap-2">${ICONS.clock} <span>${s.name}</span> <span class="badge badge-muted">${s.startTime}-${s.endTime}</span></div>
+        <div class="flex gap-2">
+          <button onclick="openEditShift('${s.id}')" class="btn btn-outline btn-sm">${ICONS.edit}</button>
+          <button onclick="deleteShift('${s.id}')" class="btn btn-outline btn-sm text-red-600">${ICONS.trash}</button>
+        </div>
+      </div>`).join('') || '<div class="text-slate-400 text-sm">Belum ada shift</div>'}
+    </div>
+  </div>`;
+}
+async function addShift(){
+  const name = val('sh-name'), startTime = val('sh-start'), endTime = val('sh-end');
+  if(!name || !startTime || !endTime) return toast('Lengkapi semua field',false);
+  await db.collection('shifts').add({name, startTime, endTime});
+  await loadGlobalData();
+  toast('Shift ditambahkan');
+  switchTab('shift');
+}
+function openEditShift(id){
+  const s = shiftsCache.find(x=>x.id===id);
+  showModal(`
+    <div class="font-bold text-lg mb-4 flex items-center gap-2">${ICONS.edit} Edit Shift</div>
+    <label class="field-label">Nama Shift</label>
+    <input id="esh-name" value="${s.name}" class="mb-3">
+    <div class="flex gap-2 mb-4">
+      <div class="flex-1"><label class="field-label">Jam Mulai</label><input id="esh-start" type="time" value="${s.startTime}"></div>
+      <div class="flex-1"><label class="field-label">Jam Selesai</label><input id="esh-end" type="time" value="${s.endTime}"></div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="closeModal()" class="btn btn-outline flex-1">Batal</button>
+      <button onclick="saveShiftEdit('${id}')" class="btn btn-primary flex-1">Simpan</button>
+    </div>
+  `);
+}
+async function saveShiftEdit(id){
+  const name = val('esh-name'), startTime = val('esh-start'), endTime = val('esh-end');
+  if(!name || !startTime || !endTime) return toast('Lengkapi semua field', false);
+  await db.collection('shifts').doc(id).update({name, startTime, endTime});
+  await loadGlobalData();
+  closeModal();
+  toast('Shift diperbarui');
+  switchTab('shift');
+}
+async function deleteShift(id){
+  showModal(`
+    <div class="font-bold text-lg mb-2">Hapus Shift?</div>
+    <div class="text-sm text-slate-500 mb-5">Karyawan yang memakai shift ini di jadwalnya perlu diatur ulang.</div>
+    <div class="flex gap-2">
+      <button onclick="closeModal()" class="btn btn-outline flex-1">Batal</button>
+      <button onclick="confirmDeleteShift('${id}')" class="btn btn-danger flex-1">Hapus</button>
+    </div>
+  `);
+}
+async function confirmDeleteShift(id){
+  await db.collection('shifts').doc(id).delete();
+  await loadGlobalData();
+  closeModal();
+  toast('Shift dihapus');
+  switchTab('shift');
+}
+
+/* ---- Tab: Karyawan ---- */
+async function renderTabKaryawan(c){
+  const snap = await db.collection('users').where('role','==','karyawan').get();
+  const users = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  usersCache = users;
+  c.innerHTML = `
+  <div class="card p-5 mb-4 text-sm text-slate-500 card-anim">
+    Karyawan mendaftar sendiri lewat halaman login. Setelah muncul di daftar, atur Nama/NIK, jadwal shift mingguan,
+    atau nonaktifkan akunnya.
+  </div>
+  <div class="card p-5 card-anim">
+    <div class="font-semibold mb-3 flex items-center gap-2">${ICONS.users} Daftar Karyawan (${users.length})</div>
+    ${users.map(u=>karyawanRowHtml(u)).join('') || '<div class="text-slate-400 text-sm">Belum ada karyawan</div>'}
+  </div>`;
+}
+function scheduleSummary(u){
+  const sched = u.schedule || {};
+  const parts = DAYS.map(d=>{
+    const s = shiftsCache.find(x=>x.id===sched[d.key]);
+    return `${d.short}:${s?s.name:'-'}`;
+  });
+  return parts.join(' · ');
+}
+function karyawanRowHtml(u){
+  return `
+  <div class="border-t py-3">
+    <div class="flex flex-wrap justify-between items-start gap-2">
+      <div>
+        <div class="font-medium">${u.name} ${u.active?'':'<span class="badge badge-danger ml-1">Nonaktif</span>'}</div>
+        <div class="text-xs text-slate-500">${u.email} ${u.nik?`• NIK: ${u.nik}`:''}</div>
+        <div class="text-xs text-slate-400 mt-1">${scheduleSummary(u)}</div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="openEditEmployee('${u.id}')" class="btn btn-outline btn-sm">${ICONS.edit} Info</button>
+        <button onclick="openScheduleModal('${u.id}')" class="btn btn-outline btn-sm">${ICONS.calendar} Jadwal</button>
+        <button onclick="toggleActive('${u.id}', ${!u.active})" class="btn btn-outline btn-sm">${u.active?'Nonaktifkan':'Aktifkan'}</button>
+        ${window.__isSuperadmin ? `<button onclick="promote('${u.id}')" class="btn btn-outline btn-sm">Jadikan Admin</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+function openEditEmployee(uid){
+  const u = usersCache.find(x=>x.id===uid);
+  showModal(`
+    <div class="font-bold text-lg mb-4 flex items-center gap-2">${ICONS.edit} Info Karyawan</div>
+    <label class="field-label">Nama Lengkap</label>
+    <input id="eu-name" value="${u.name}" class="mb-3">
+    <label class="field-label">NIK</label>
+    <input id="eu-nik" value="${u.nik||''}" placeholder="Nomor Induk Karyawan" class="mb-4">
+    <div class="flex gap-2">
+      <button onclick="closeModal()" class="btn btn-outline flex-1">Batal</button>
+      <button onclick="saveEmployeeInfo('${uid}')" class="btn btn-primary flex-1">Simpan</button>
+    </div>
+  `);
+}
+async function saveEmployeeInfo(uid){
+  const name = val('eu-name');
+  if(!name) return toast('Nama tidak boleh kosong', false);
+  await db.collection('users').doc(uid).update({ name, nik: val('eu-nik') });
+  closeModal();
+  toast('Data karyawan diperbarui');
+  switchTab('karyawan');
+}
+function openScheduleModal(uid){
+  const u = usersCache.find(x=>x.id===uid);
+  const sched = u.schedule || {};
+  showModal(`
+    <div class="font-bold text-lg mb-1 flex items-center gap-2">${ICONS.calendar} Jadwal Shift Mingguan</div>
+    <div class="text-sm text-slate-500 mb-4">${u.name} — karyawan bisa punya shift berbeda tiap hari.</div>
+    ${DAYS.map(d=>`
+      <div class="day-chip">
+        <span class="font-medium text-sm">${d.label}</span>
+        <select id="sc-${d.key}" style="width:auto; min-width:140px;">
+          <option value="">Libur / Tanpa shift</option>
+          ${shiftsCache.map(s=>`<option value="${s.id}" ${sched[d.key]===s.id?'selected':''}>${s.name} (${s.startTime}-${s.endTime})</option>`).join('')}
+        </select>
+      </div>`).join('')}
+    <div class="flex gap-2 mt-4">
+      <button onclick="closeModal()" class="btn btn-outline flex-1">Batal</button>
+      <button onclick="saveSchedule('${uid}')" class="btn btn-primary flex-1">Simpan Jadwal</button>
+    </div>
+  `);
+}
+async function saveSchedule(uid){
+  const schedule = {};
+  DAYS.forEach(d=>{ const v = val(`sc-${d.key}`); if(v) schedule[d.key] = v; });
+  await db.collection('users').doc(uid).update({ schedule });
+  closeModal();
+  toast('Jadwal shift diperbarui');
+  switchTab('karyawan');
+}
+async function toggleActive(uid, active){
+  await db.collection('users').doc(uid).update({active});
+  toast(active?'Akun diaktifkan':'Akun dinonaktifkan');
+  switchTab('karyawan');
+}
+async function promote(uid){
+  await db.collection('users').doc(uid).update({role:'admin'});
+  toast('Karyawan dijadikan admin');
+  switchTab('karyawan');
+}
+
+/* ---- Tab: Kelola Admin (superadmin only) ---- */
+async function renderTabAdmin(c){
+  const snap = await db.collection('users').where('role','==','admin').get();
+  const admins = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  c.innerHTML = `<div class="card p-5 card-anim">
+    <div class="font-semibold mb-3 flex items-center gap-2">${ICONS.shield} Daftar Admin (${admins.length})</div>
+    ${admins.map(u=>`
+      <div class="border-t py-3 flex justify-between items-center gap-2">
+        <div><div class="font-medium">${u.name}</div><div class="text-xs text-slate-500">${u.email}</div></div>
+        <button onclick="demote('${u.id}')" class="btn btn-outline btn-sm">Turunkan ke Karyawan</button>
+      </div>`).join('') || '<div class="text-slate-400 text-sm">Belum ada admin</div>'}
+  </div>`;
+}
+async function demote(uid){
+  await db.collection('users').doc(uid).update({role:'karyawan'});
+  toast('Admin diturunkan menjadi karyawan');
+  switchTab('admin');
+}
+
+/* ---- Tab: Data Absensi (Data Mentah + Rekap Harian) + Export Excel ---- */
+let absensiView = 'rekap';
+let lastAttendanceRows = [];
+let lastRekapRows = [];
+
+function renderTabAbsensi(c){
+  const today = new Date().toISOString().slice(0,10);
+  const monthAgo = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+  c.innerHTML = `
+  <div class="card p-5 mb-4 card-anim">
+    <div class="pill-tabs mb-4">
+      <button class="pill-tab ${absensiView==='rekap'?'active':''}" onclick="setAbsensiView('rekap')">Rekap Harian</button>
+      <button class="pill-tab ${absensiView==='mentah'?'active':''}" onclick="setAbsensiView('mentah')">Data Mentah</button>
+    </div>
+    <div class="flex flex-wrap gap-3 items-end">
+      <div><label class="field-label">Dari</label><input id="af-from" type="date" value="${monthAgo}"></div>
+      <div><label class="field-label">Sampai</label><input id="af-to" type="date" value="${today}"></div>
+      <button onclick="loadAttendanceData()" class="btn btn-outline">Tampilkan</button>
+      <button onclick="exportExcel()" class="btn btn-primary">${ICONS.chart} Export Excel</button>
+    </div>
+  </div>
+  <div class="card p-5 overflow-x-auto card-anim"><div id="att-table" class="text-sm text-slate-400">Pilih rentang tanggal lalu klik Tampilkan.</div></div>
+  `;
+}
+function setAbsensiView(v){ absensiView = v; switchTab('absensi'); }
+
+async function loadAttendanceData(){
+  const el = document.getElementById('att-table');
+  el.innerHTML = skeleton(5);
+  const from = new Date(val('af-from'));
+  const to = new Date(val('af-to')); to.setHours(23,59,59,999);
+  const [attSnap, usersSnap] = await Promise.all([
+    db.collection('attendance').where('timestamp','>=', from).where('timestamp','<=', to).orderBy('timestamp','desc').get(),
+    db.collection('users').get()
+  ]);
+  lastAttendanceRows = attSnap.docs.map(d=>d.data());
+  const userMap = {};
+  usersSnap.docs.forEach(d=>{ userMap[d.id] = {id:d.id, ...d.data()}; });
+
+  if(absensiView === 'mentah'){ renderRawTable(el); return; }
+  buildRekapHarian(userMap);
+  renderRekapTable(el);
+}
+
+function renderRawTable(el){
+  if(lastAttendanceRows.length===0){ el.innerHTML = '<div class="text-slate-400 text-sm">Tidak ada data pada rentang ini.</div>'; return; }
+  el.innerHTML = `<table class="data-table"><thead><tr>
+    <th>Nama</th><th>Waktu</th><th>Jenis</th><th>Kantor</th><th>Jarak</th><th>Jadwal Masuk</th><th>Jadwal Pulang</th></tr></thead><tbody>
+    ${lastAttendanceRows.map(r=>{
+      const shift = r.shiftId ? shiftsCache.find(s=>s.id===r.shiftId) : null;
+      return `<tr><td>${r.name}</td>
+      <td>${fmtTime(r.timestamp)}</td><td>${r.type==='in'?'Masuk':'Keluar'}</td>
+      <td>${r.officeLabel||'-'}</td><td>${r.distance}m</td>
+      <td>${shift?shift.startTime:'-'}</td><td>${shift?shift.endTime:'-'}</td></tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+// Susun rekap harian: per karyawan per hari, clock-in pertama & clock-out terakhir.
+function buildRekapHarian(userMap){
+  const groups = {}; // key: uid|date
+  lastAttendanceRows.forEach(r=>{
+    const dk = dateKey(r.timestamp);
+    const key = `${r.uid}|${dk}`;
+    if(!groups[key]) groups[key] = { uid:r.uid, name:r.name, date:dk, ins:[], outs:[], shiftIds:[] };
+    if(r.type==='in') groups[key].ins.push(r.timestamp);
+    else groups[key].outs.push(r.timestamp);
+    if(r.shiftId) groups[key].shiftIds.push(r.shiftId);
+  });
+  const rows = Object.values(groups).map(g=>{
+    g.ins.sort((a,b)=> (a.toDate?a.toDate():new Date(a)) - (b.toDate?b.toDate():new Date(b)));
+    g.outs.sort((a,b)=> (a.toDate?a.toDate():new Date(a)) - (b.toDate?b.toDate():new Date(b)));
+    const firstIn = g.ins[0] || null;
+    const lastOut = g.outs[g.outs.length-1] || null;
+    const u = userMap[g.uid];
+    const nik = u ? u.nik : '';
+
+    // Prioritaskan shift yang tersimpan di record absensi (akurat sesuai saat itu).
+    // Fallback ke jadwal saat ini jika data lama belum menyimpan shiftId.
+    let shift = null;
+    if(g.shiftIds.length){
+      shift = shiftsCache.find(s=>s.id===g.shiftIds[0]) || null;
+    }
+    if(!shift && u && u.schedule){
+      const d = new Date(g.date+'T00:00:00');
+      const dow = d.getDay();
+      const dayObj = DAYS.find(x=>x.dow===dow);
+      const shiftId = u.schedule[dayObj.key];
+      shift = shiftId ? shiftsCache.find(s=>s.id===shiftId) : null;
+    }
+
+    let status, statusClass;
+    if(!firstIn && lastOut){ status='Lupa Clock In'; statusClass='badge-danger'; }
+    else if(firstIn && !lastOut){ status='Lupa Clock Out'; statusClass='badge-warn'; }
+    else if(firstIn && shift){
+      const inDate = firstIn.toDate ? firstIn.toDate() : new Date(firstIn);
+      const [h,m] = shift.startTime.split(':').map(Number);
+      const shiftStart = new Date(inDate); shiftStart.setHours(h,m,0,0);
+      const lateMin = Math.round((inDate - shiftStart)/60000);
+      if(lateMin > 0){ status = `Terlambat ${lateMin} menit`; statusClass='badge-danger'; }
+      else { status = 'Tepat Waktu'; statusClass='badge-ok'; }
+    } else if(firstIn){ status='Tepat Waktu'; statusClass='badge-ok'; }
+    else { status='-'; statusClass='badge-muted'; }
+
+    return { uid:g.uid, name:g.name, nik, date:g.date, firstIn, lastOut, status, statusClass, shift };
+  }).sort((a,b)=> b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
+  lastRekapRows = rows;
+}
+
+function renderRekapTable(el){
+  if(lastRekapRows.length===0){ el.innerHTML = '<div class="text-slate-400 text-sm">Tidak ada data pada rentang ini.</div>'; return; }
+  el.innerHTML = `<table class="data-table"><thead><tr>
+    <th>Tanggal</th><th>Nama</th><th>NIK</th><th>Jadwal Masuk</th><th>Jadwal Pulang</th><th>Jam Masuk</th><th>Jam Keluar</th><th>Status</th></tr></thead><tbody>
+    ${lastRekapRows.map(r=>`<tr>
+      <td>${fmtDateLabel(r.date)}</td>
+      <td>${r.name}</td>
+      <td>${r.nik||'-'}</td>
+      <td>${r.shift?r.shift.startTime:'-'}</td>
+      <td>${r.shift?r.shift.endTime:'-'}</td>
+      <td>${fmtClock(r.firstIn)}</td>
+      <td>${fmtClock(r.lastOut)}</td>
+      <td><span class="badge ${r.statusClass}">${r.status}</span></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function exportExcel(){
+  if(absensiView==='mentah'){
+    if(lastAttendanceRows.length===0) return toast('Tampilkan data dahulu sebelum export',false);
+    const data = lastAttendanceRows.map(r=>{
+      const shift = r.shiftId ? shiftsCache.find(s=>s.id===r.shiftId) : null;
+      return {
+        Nama: r.name, Waktu: fmtTime(r.timestamp), Jenis: r.type==='in'?'Masuk':'Keluar',
+        Kantor: r.officeLabel||'-', 'Jarak (m)': r.distance,
+        'Jadwal Masuk': shift?shift.startTime:'-', 'Jadwal Pulang': shift?shift.endTime:'-',
+        Latitude: r.lat, Longitude: r.lng
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data Mentah');
+    XLSX.writeFile(wb, `absensi-mentah-${new Date().toISOString().slice(0,10)}.xlsx`);
+  } else {
+    if(lastRekapRows.length===0) return toast('Tampilkan data dahulu sebelum export',false);
+    const data = lastRekapRows.map(r=>({
+      Tanggal: fmtDateLabel(r.date), Nama: r.name, NIK: r.nik||'-',
+      'Jadwal Masuk': r.shift?r.shift.startTime:'-', 'Jadwal Pulang': r.shift?r.shift.endTime:'-',
+      'Jam Masuk': fmtClock(r.firstIn), 'Jam Keluar': fmtClock(r.lastOut), Status: r.status
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap Harian');
+    XLSX.writeFile(wb, `rekap-harian-${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+}
+
+/* PWA service worker */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
