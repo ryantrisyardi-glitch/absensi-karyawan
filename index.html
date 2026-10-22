@@ -157,7 +157,7 @@ const firebaseConfig = {
 
 // Email yang otomatis menjadi SUPERADMIN saat pertama kali login.
 // Ganti dengan email Anda sendiri sebelum deploy. HARUS SAMA dengan firestore.rules.
-const SUPERADMIN_EMAIL = "ryan.trisyardi@gmail.com", "finance@satukios.id";
+const SUPERADMIN_EMAIL = ["ryan.trisyardi@gmail.com", "finance@satukios.id"];
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
